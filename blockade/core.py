@@ -257,60 +257,72 @@ class Blockade(object):
         state = self.state_factory.load()
         return self._get_all_containers(state)
 
-    def _get_running_containers(self, container_names=None, state=None):
+    def _get_stopped_containers(self, container_names=None, state=None, select_random=False):
+        return self._get_containers_with_state(ContainerState.DOWN, container_names, state, select_random)
+
+    def _get_running_containers(self, container_names=None, state=None, select_random=False):
+        return self._get_containers_with_state(ContainerState.UP, container_names, state, select_random)
+
+    def _get_containers_with_state(self, container_state, container_names=None, state=None, select_random=False):
         state = state or self.state_factory.load()
         containers = self._get_all_containers(state)
 
-        running = dict((c.name, c) for c in containers
-                       if c.state == ContainerState.UP)
+        candidates = dict((c.name, c) for c in containers
+                       if c.state == container_state)
+
+        if select_random and candidates:
+            return [random.choice(list(candidates.values()))]
+
         if container_names is None:
-            return list(running.values())
+            return list(candidates.values())
 
         found = []
         for name in container_names:
-            container = running.get(name)
+            container = candidates.get(name)
             if not container:
-                raise BlockadeError("Container %s is not found or not running"
-                                    % (name,))
+                raise BlockadeError("Container %s is not found or not '%s'"
+                                    % (name, container_state))
             found.append(container)
         return found
 
     def _get_running_container(self, container_name, state=None):
         return self._get_running_containers((container_name,), state)[0]
 
-    def __with_running_container_device(self, container_names, state, func):
-        containers = self._get_running_containers(container_names, state)
+    def __with_running_container_device(self, container_names, state, func, select_random=False):
+        containers = self._get_running_containers(container_names, state, select_random)
         for container in containers:
             device = container.device
             func(device)
 
-    def flaky(self, container_names, state):
-        self.__with_running_container_device(container_names, state, self.network.flaky)
+    def flaky(self, container_names, state, select_random=False):
+        self.__with_running_container_device(container_names, state, self.network.flaky, select_random)
 
-    def slow(self, container_names, state):
-        self.__with_running_container_device(container_names, state, self.network.slow)
+    def slow(self, container_names, state, select_random=False):
+        self.__with_running_container_device(container_names, state, self.network.slow, select_random)
 
-    def duplicate(self, container_names, state):
-        self.__with_running_container_device(container_names, state, self.network.duplicate)
+    def duplicate(self, container_names, state, select_random=False):
+        self.__with_running_container_device(container_names, state, self.network.duplicate, select_random)
 
-    def fast(self, container_names, state):
-        self.__with_running_container_device(container_names, state, self.network.fast)
+    def fast(self, container_names, state, select_random=False):
+        self.__with_running_container_device(container_names, state, self.network.fast, select_random)
 
-    def restart(self, container_names, state):
-        containers = self._get_running_containers(container_names, state)
+    def restart(self, container_names, state, select_random=False):
+        containers = self._get_running_containers(container_names, state, select_random)
         for container in containers:
             self._stop(container)
             state = self._start(container.name, state)
 
-    def stop(self, container_names, state):
-        containers = self._get_running_containers(container_names, state)
+    def stop(self, container_names, state, select_random=False):
+        containers = self._get_running_containers(container_names, state, select_random)
         for container in containers:
             self._stop(container)
 
     def _stop(self, container):
         self.docker_client.stop(container.container_id, timeout=DEFAULT_KILL_TIMEOUT)
 
-    def start(self, container_names, state):
+    def start(self, container_names, state, select_random=False):
+        containers = self._get_stopped_containers(container_names, state, select_random)
+        container_names = [c.name for c in containers]
         for container in container_names:
             state = self._start(container, state)
 
