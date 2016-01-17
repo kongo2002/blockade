@@ -113,11 +113,21 @@ class Blockade(object):
 
         return device
 
+    def __get_container_links(self, container, blockade_id):
+        links = {}
+        for link, alias in container.links.items():
+            link_container = self.config.containers.get(link, None)
+            if not link_container:
+                raise BlockadeError("link '%s' of container '%s' does not exist" %
+                                    (link, container.name))
+            name = link_container.get_name(blockade_id)
+            links[name] = alias
+        return links
+
     def _start_container(self, blockade_id, container, force=False):
-        container_name = container.container_name or docker_container_name(blockade_id, container.name)
+        container_name = container.get_name(blockade_id)
         volumes = list(container.volumes.values()) or None
-        links = dict((docker_container_name(blockade_id, link), alias)
-                     for link, alias in container.links.items())
+        links = self.__get_container_links(container, blockade_id)
 
         # the docker api for port bindings is `internal:external`
         port_bindings = dict((v, k) for k, v in container.publish_ports.items())
@@ -427,10 +437,6 @@ class ContainerState(object):
     UP = "UP"
     DOWN = "DOWN"
     MISSING = "MISSING"
-
-
-def docker_container_name(blockade_id, name):
-    return '_'.join((blockade_id, name))
 
 
 def expand_partitions(containers, partitions):
