@@ -97,7 +97,7 @@ class BlockadeContainerConfig(object):
             (expose_ports or []) + list(self.publish_ports.values())
         ))
 
-        self.environment = _dictify(environment, _populate_env, _populate_env)
+        self.environment = _dictify(environment, 'environment', _populate_env, _populate_env)
 
     def get_name(self, blockade_id):
         if self.container_name:
@@ -177,7 +177,7 @@ def _populate_env(value):
         key = match.group(1)
         env = os.environ.get(key) or builtins.get(key)
         if not env:
-            raise BlockadeConfigError("there is no environment variable '$%s'" % (key))
+            return ''
         return env
     return re.sub(r"\${([a-zA-Z][-_a-zA-Z0-9]*)}", get_env_value, value)
 
