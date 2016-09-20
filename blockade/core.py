@@ -300,32 +300,38 @@ class Blockade(object):
 
     def __with_running_container_device(self, container_names, state, func, select_random=False):
         containers = self._get_running_containers(container_names, state, select_random)
+        container_names = [c.name for c in containers]
         for container in containers:
             device = container.device
             func(device)
+        return container_names
 
     def flaky(self, container_names, state, select_random=False):
-        self.__with_running_container_device(container_names, state, self.network.flaky, select_random)
+        return self.__with_running_container_device(container_names, state, self.network.flaky, select_random)
 
     def slow(self, container_names, state, select_random=False):
-        self.__with_running_container_device(container_names, state, self.network.slow, select_random)
+        return self.__with_running_container_device(container_names, state, self.network.slow, select_random)
 
     def duplicate(self, container_names, state, select_random=False):
-        self.__with_running_container_device(container_names, state, self.network.duplicate, select_random)
+        return self.__with_running_container_device(container_names, state, self.network.duplicate, select_random)
 
     def fast(self, container_names, state, select_random=False):
-        self.__with_running_container_device(container_names, state, self.network.fast, select_random)
+        return self.__with_running_container_device(container_names, state, self.network.fast, select_random)
 
     def restart(self, container_names, state, select_random=False):
         containers = self._get_running_containers(container_names, state, select_random)
+        container_names = [c.name for c in containers]
         for container in containers:
             self._stop(container)
             state = self._start(container.name, state)
+        return container_names
 
     def stop(self, container_names, state, select_random=False):
         containers = self._get_running_containers(container_names, state, select_random)
+        container_names = [c.name for c in containers]
         for container in containers:
             self._stop(container)
+        return container_names
 
     def _stop(self, container):
         self.docker_client.stop(container.container_id, timeout=DEFAULT_KILL_TIMEOUT)
@@ -335,6 +341,7 @@ class Blockade(object):
         container_names = [c.name for c in containers]
         for container in container_names:
             state = self._start(container, state)
+        return container_names
 
     def _start(self, container, state):
         container_id = state.container_id(container)
